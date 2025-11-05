@@ -102,7 +102,7 @@ export default function ChatInterface({
             />
           </div>
           <Button
-            onClick={onSendMessage}
+            onClick={() => onSendMessage()}
             disabled={!inputValue.trim() || isTyping}
             className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 h-10 sm:h-12 px-4 sm:px-6 rounded-lg sm:rounded-xl shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
           >
