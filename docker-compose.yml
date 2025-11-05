@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PFAPI_URL=http://pfapi:8080
+    depends_on:
+      - pfapi
+
+  pfapi:
+    image: pfapi:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
