@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Sparkles, Network, Zap, ArrowRight } from "lucide-react";
+import { Sparkles, Network, Zap, ArrowRight, LogOut, User } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const quickStartOptions = [
   "Get pricing for a 10Gbps connection between NYC and LA",
@@ -16,10 +18,91 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionProps) {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/check');
+        if (response.ok) {
+          const data = await response.json();
+          setIsAuthenticated(data.isLoggedIn);
+        }
+      } catch (error) {
+        // Not logged in
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(false);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
   return (
     <div className="min-h-screen flex items-center justify-center relative z-10 px-4 sm:px-6">
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/30 pointer-events-none" />
+
+      {/* Login/Logout button - positioned in top-right corner */}
+      <div className="absolute top-6 right-6 z-20 flex gap-3">
+        {isAuthenticated && (
+          <Link href="/profile">
+            <Button
+              variant="outline"
+              className="bg-transparent border border-white/40 text-white hover:bg-blue-500/20 hover:border-blue-400/60 px-5 py-2 text-sm rounded-lg font-medium transition-all duration-200 backdrop-blur-sm"
+              style={{
+                textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
+              }}
+            >
+              <User className="w-4 h-4 mr-2" />
+              Profile
+            </Button>
+          </Link>
+        )}
+        {isAuthenticated ? (
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            variant="outline"
+            className="bg-transparent border border-white/40 text-white hover:bg-red-500/20 hover:border-red-400/60 px-5 py-2 text-sm rounded-lg font-medium transition-all duration-200 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
+            }}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </Button>
+        ) : (
+          <Link href="/login">
+            <Button
+              variant="outline"
+              className="bg-transparent border border-white/40 text-white hover:bg-white/10 hover:border-white/60 px-5 py-2 text-sm rounded-lg font-medium transition-all duration-200 backdrop-blur-sm"
+              style={{
+                textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
+              }}
+            >
+              Login
+            </Button>
+          </Link>
+        )}
+      </div>
 
       <div className="text-center max-w-4xl mx-auto relative z-10">
 

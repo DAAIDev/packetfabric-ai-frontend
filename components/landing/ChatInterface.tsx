@@ -14,7 +14,7 @@ interface ChatInterfaceProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   isTyping: boolean;
-  onSendMessage: () => void;
+  onSendMessage: (customQuery?: string) => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onViewQuote: (quote: any) => void;
@@ -125,14 +125,14 @@ function ChatMessage({
 }) {
   const isUser = message.role === "user";
 
-  const processContent = (content: string) => {
+  const processContent = (content: string): { hasTables: boolean; parts: Array<{ type: 'text' | 'table'; content: string }> } => {
     const tableBlockRegex = /^\|(?:[^|\n]+\|)+\n\|(?:\s*[-:]+\s*\|)+\n(?:\|(?:[^|\n]+\|)+\n*)+/gm;
 
     const parts: Array<{ type: 'text' | 'table'; content: string }> = [];
     let lastIndex = 0;
     let hasTables = false;
 
-    const matches = [...content.matchAll(tableBlockRegex)];
+    const matches = Array.from(content.matchAll(tableBlockRegex));
 
     matches.forEach(match => {
       hasTables = true;
@@ -155,10 +155,10 @@ function ChatMessage({
     }
 
     if (!hasTables) {
-      return { hasTables: false, parts: [{ type: 'text' as const, content }] };
+      return { hasTables: false, parts: [{ type: 'text', content }] };
     }
 
-    return { hasTables: hasTables, parts };
+    return { hasTables: true, parts };
   };
 
   const processedContent = processContent(message.content);

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getIronSession } from 'iron-session';
+import { sessionOptions, SessionData } from '@/lib/session';
+import { cookies } from 'next/headers';
 
 const N8N_WEBHOOK_URL = 'https://chun-pentatomic-nonspeculatively.ngrok-free.dev/webhook/ask';
 
@@ -7,10 +10,14 @@ export async function POST(req: NextRequest) {
     console.log('[API Route] Starting request...');
     console.log('[API Route] N8N_WEBHOOK_URL:', N8N_WEBHOOK_URL);
 
-    // TODO: Add authentication after meeting with Vlad
-    // For now, allow all requests in development
-    if (process.env.NODE_ENV !== 'production') {
-      // Development bypass - proceed with request
+    // Check authentication (optional - allow unauthenticated queries)
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    const isAuthenticated = session.isLoggedIn && session.token;
+
+    if (isAuthenticated) {
+      console.log('[API Route] User authenticated:', session.user_uuid);
+    } else {
+      console.log('[API Route] Unauthenticated user');
     }
 
     const body = await req.json();
@@ -29,12 +36,21 @@ export async function POST(req: NextRequest) {
     console.log('[API Route] Request body:', JSON.stringify({ query }));
 
     // Call n8n webhook
+    const requestBody: any = { query };
+
+    // Include user info if authenticated (for future conversation saving)
+    if (isAuthenticated) {
+      requestBody.user_uuid = session.user_uuid;
+      requestBody.customer_uuid = session.customer_uuid;
+      requestBody.session_id = `${session.user_uuid}_${Date.now()}`;
+    }
+
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify(requestBody),
     });
 
     console.log('[API Route] n8n webhook response status:', response.status);

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ArrowDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 import HeroSection from "@/components/landing/HeroSection";
 import ChatInterface from "@/components/landing/ChatInterface";
@@ -10,6 +11,7 @@ import ThreeJSBackground from "@/components/landing/ThreeJSBackground";
 import QuoteDisplay from "@/components/landing/QuoteDisplay";
 
 export default function ChatPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -33,9 +35,30 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  // Check if user is logged in
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        if (response.ok) {
+          const data = await response.json();
+          setIsAuthenticated(true);
+          setUserInfo(data.user);
+        }
+      } catch (error) {
+        // Not logged in
+      }
+    };
+
+    checkAuth();
+  }, []);
+
   const handleSendMessage = async (customQuery?: string) => {
     const queryText = customQuery || inputValue;
-    if (!queryText.trim()) return;
+    if (typeof queryText !== 'string' || !queryText.trim()) return;
 
     const userMessage = {
       role: "user",
