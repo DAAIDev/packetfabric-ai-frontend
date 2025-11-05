@@ -1,0 +1,157 @@
+name: Deploy to Cloud Run (Production)
+
+on:
+  workflow_dispatch: # Manual trigger only
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        default: ''
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags like v1.0.0
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: packetfabric-frontend-production
+  REGISTRY: us-central1-docker.pkg.dev
+
+jobs:
+  validate:
+    name: Validate Deployment Request
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Deployment cancelled. You must type 'deploy' to confirm."
+            exit 1
+          fi
+          echo "✅ Deployment confirmed"
+
+  deploy:
+    name: Build and Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || github.event_name == 'push')
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:${{ steps.version.outputs.version }} \
+            --tag ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:production-latest \
+            --tag ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:${{ github.sha }} \
+            --build-arg NEXT_PUBLIC_APP_ENV=production \
+            .
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:${{ steps.version.outputs.version }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:production-latest
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/packetfabric/frontend:${{ steps.version.outputs.version }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 1Gi \
+            --cpu 2 \
+            --min-instances 1 \
+            --max-instances 100 \
+            --timeout 60 \
+            --set-env-vars "NODE_ENV=production,NEXT_PUBLIC_APP_ENV=production" \
+            --set-secrets "PFAPI_URL=PFAPI_URL_PRODUCTION:latest,N8N_WEBHOOK_URL=N8N_WEBHOOK_URL_PRODUCTION:latest,SESSION_SECRET=SESSION_SECRET_PRODUCTION:latest" \
+            --tag production \
+            --no-traffic # Deploy without switching traffic (for validation)
+
+      - name: Get Cloud Run URL
+        id: get-url
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "🚀 Deployed to: $URL"
+
+      - name: Create revision tag URL
+        id: revision-url
+        run: |
+          REVISION_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --format 'value(status.traffic[0].url)')
+          echo "revision_url=$REVISION_URL" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## Production Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production URL**: ${{ steps.get-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The new revision has been deployed but **traffic is NOT switched yet**." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Test the new revision**: ${{ steps.revision-url.outputs.revision_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Switch traffic to new revision**:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --region ${{ env.REGION }} \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --to-latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Or rollback if needed**:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "gcloud run services update-traffic ${{ env.SERVICE_NAME }} \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --region ${{ env.REGION }} \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --to-revisions=PREVIOUS_REVISION=100" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify deployment
+        run: |
+          echo "✅ Production deployment complete!"
+          echo "🔍 Test the new revision before switching traffic"
+          echo "📊 Monitor logs: gcloud run services logs read ${{ env.SERVICE_NAME }} --region ${{ env.REGION }}"
