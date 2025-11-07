@@ -21,11 +21,13 @@ export default function LocationPicker({
 }: LocationPickerProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<string | null>(null);
   const [selectedTo, setSelectedTo] = React.useState<string | null>(null);
+  const hasSubmittedRef = React.useRef(false);
 
   const handleFromSelect = (code: string) => {
     setSelectedFrom(code);
     // Auto-submit if only "from" alternatives exist
-    if (!toAlternatives) {
+    if (!toAlternatives && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       onSelect(code, null);
     }
   };
@@ -33,17 +35,19 @@ export default function LocationPicker({
   const handleToSelect = (code: string) => {
     setSelectedTo(code);
     // Auto-submit if only "to" alternatives exist
-    if (!fromAlternatives) {
+    if (!fromAlternatives && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       onSelect(null, code);
     }
   };
 
   // Auto-submit when both are selected
   React.useEffect(() => {
-    if (fromAlternatives && toAlternatives && selectedFrom && selectedTo) {
+    if (fromAlternatives && toAlternatives && selectedFrom && selectedTo && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       onSelect(selectedFrom, selectedTo);
     }
-  }, [selectedFrom, selectedTo, fromAlternatives, toAlternatives, onSelect]);
+  }, [selectedFrom, selectedTo, fromAlternatives, toAlternatives]);
 
   return (
     <motion.div

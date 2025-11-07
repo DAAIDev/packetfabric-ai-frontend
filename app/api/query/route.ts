@@ -3,12 +3,24 @@ import { getIronSession } from 'iron-session';
 import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 
-const N8N_WEBHOOK_URL = 'https://chun-pentatomic-nonspeculatively.ngrok-free.dev/webhook/ask';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
 
 export async function POST(req: NextRequest) {
   try {
     console.log('[API Route] Starting request...');
     console.log('[API Route] N8N_WEBHOOK_URL:', N8N_WEBHOOK_URL);
+
+    // Validate webhook URL is configured
+    if (!N8N_WEBHOOK_URL) {
+      console.error('[API Route] N8N_WEBHOOK_URL is not configured');
+      return NextResponse.json(
+        {
+          error: 'Service configuration error',
+          answer: 'The AI service is not properly configured. Please contact support.',
+        },
+        { status: 503 }
+      );
+    }
 
     // Check authentication (optional - allow unauthenticated queries)
     const session = await getIronSession<SessionData>(cookies(), sessionOptions);
@@ -61,8 +73,17 @@ export async function POST(req: NextRequest) {
       throw new Error(`n8n webhook error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('[API Route] n8n webhook response data:', JSON.stringify(data).substring(0, 200));
+    // Parse JSON with error handling for truncated responses
+    let data;
+    try {
+      const responseText = await response.text();
+      console.log('[API Route] n8n webhook response length:', responseText.length);
+      data = JSON.parse(responseText);
+      console.log('[API Route] n8n webhook response data:', JSON.stringify(data).substring(0, 200));
+    } catch (parseError) {
+      console.error('[API Route] Failed to parse n8n response:', parseError);
+      throw new Error('n8n returned invalid JSON response');
+    }
 
     // n8n already returns formatted response, so just pass it through
     return NextResponse.json(data);

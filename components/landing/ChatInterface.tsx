@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Sparkles, FileText, ExternalLink } from "lucide-react";
+import { Send, Bot, User, Sparkles, FileText, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
@@ -32,12 +32,16 @@ export default function ChatInterface({
   onViewQuote,
   onLocationSelect
 }: ChatInterfaceProps) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      className="chat-container rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden mx-2 sm:mx-0"
+      className={`chat-container rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden mx-2 sm:mx-0 transition-all duration-300 ${
+        isExpanded ? 'fixed inset-4 z-50' : ''
+      }`}
     >
       {/* Chat Header */}
       <div className="bg-gradient-to-r from-blue-600/90 to-cyan-600/90 backdrop-blur-md border-b border-white/10 p-4 sm:p-6">
@@ -49,7 +53,16 @@ export default function ChatInterface({
             <h2 className="text-lg sm:text-xl font-bold text-white truncate">PacketFabric AI Assistant</h2>
             <p className="text-slate-100 text-xs sm:text-sm">Ready to help with your networking needs</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <Button
+              onClick={() => setIsExpanded(!isExpanded)}
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/10 h-8 w-8 p-0"
+              title={isExpanded ? "Minimize" : "Maximize"}
+            >
+              {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </Button>
             <div className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-green-400/30 rounded-full">
               <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
               <span className="text-white text-xs font-medium">Online</span>
@@ -59,7 +72,9 @@ export default function ChatInterface({
       </div>
 
       {/* Messages Area */}
-      <div className="h-80 sm:h-96 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-slate-900/95 backdrop-blur-sm">
+      <div className={`overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-slate-900/95 backdrop-blur-sm ${
+        isExpanded ? 'h-[calc(100vh-12rem)]' : 'h-80 sm:h-96'
+      }`}>
         <AnimatePresence>
           {messages.length === 0 && !isTyping && (
             <motion.div
@@ -179,16 +194,16 @@ function ChatMessage({
         {isUser ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
       </div>
 
-      <Card className={`max-w-xs sm:max-w-2xl p-4 sm:p-5 shadow-lg border-0 ${
+      <Card className={`max-w-xs sm:max-w-2xl p-5 sm:p-6 shadow-lg border-0 ${
         isUser
-          ? 'bg-slate-700'
-          : 'bg-slate-800'
+          ? 'bg-slate-700/80'
+          : 'bg-slate-800/80'
       }`}>
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className={`text-xs font-semibold ${isUser ? 'text-slate-300' : 'text-cyan-400'}`}>
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className={`text-sm font-semibold ${isUser ? 'text-slate-200' : 'text-cyan-300'}`}>
             {isUser ? 'You' : 'PacketFabric AI'}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-400">
             {format(new Date(message.timestamp), "HH:mm")}
           </span>
           {!isUser && hasLivePricing && (
@@ -205,20 +220,23 @@ function ChatMessage({
               part.type === 'table' ? (
                 <PricingTable key={index} tableData={part.content} />
               ) : (
-                <div key={index} className="prose prose-sm prose-invert max-w-none">
+                <div key={index} className="prose prose-base max-w-none">
                   <ReactMarkdown
                     components={{
                       p: ({node, ...props}) => (
-                        <p className="text-slate-100 leading-relaxed mb-4 last:mb-0 text-[15px]" {...props} />
+                        <p className="!text-white leading-relaxed mb-4 last:mb-0 text-base" {...props} />
                       ),
                       h2: ({node, ...props}) => (
-                        <h2 className="text-xl font-bold text-cyan-300 mb-3 mt-5 first:mt-0" {...props} />
+                        <h2 className="text-xl font-bold !text-cyan-300 mb-4 mt-6 first:mt-0" {...props} />
                       ),
                       ul: ({node, ...props}) => (
-                        <ul className="list-disc list-outside ml-5 space-y-2 mb-4 text-slate-100" {...props} />
+                        <ul className="list-disc list-outside ml-5 space-y-2 mb-4 !text-white" {...props} />
+                      ),
+                      li: ({node, ...props}) => (
+                        <li className="!text-white" {...props} />
                       ),
                       strong: ({node, ...props}) => (
-                        <strong className="font-bold text-white" {...props} />
+                        <strong className="font-bold !text-white" {...props} />
                       ),
                     }}
                   >
@@ -229,11 +247,20 @@ function ChatMessage({
             ))}
           </div>
         ) : (
-          <div className="prose prose-sm prose-invert max-w-none">
+          <div className="prose prose-base max-w-none">
             <ReactMarkdown
               components={{
                 p: ({node, ...props}) => (
-                  <p className="text-slate-100 leading-relaxed mb-4 last:mb-0 text-[15px]" {...props} />
+                  <p className="!text-white leading-relaxed mb-4 last:mb-0 text-base" {...props} />
+                ),
+                ul: ({node, ...props}) => (
+                  <ul className="list-disc list-outside ml-5 space-y-2 mb-4 !text-white" {...props} />
+                ),
+                li: ({node, ...props}) => (
+                  <li className="!text-white" {...props} />
+                ),
+                strong: ({node, ...props}) => (
+                  <strong className="font-bold !text-white" {...props} />
                 ),
               }}
             >
@@ -243,32 +270,26 @@ function ChatMessage({
         )}
 
         {message.metadata?.sources && message.metadata.sources.length > 0 && (
-          <div className="mt-6 pt-4 border-t border-slate-700">
-            <p className="text-xs font-semibold text-cyan-400 mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Sources:
+          <div className="mt-6 pt-5 border-t border-slate-600/50">
+            <p className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5" />
+              Sources & Citations
             </p>
             <div className="space-y-2">
-              {message.metadata.sources.slice(0, 3).map((source: any, idx: number) => (
-                <a
-                  key={idx}
-                  href={source.source_url && source.source_url.startsWith('http') ? source.source_url : `https://docs.packetfabric.com${source.source_url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-slate-700 hover:bg-slate-600 rounded-lg p-3 transition-colors group"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-cyan-300 font-medium mb-1 group-hover:text-cyan-200 flex items-center gap-2">
-                        <span className="truncate">{source.title}</span>
-                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        Relevance: {source.relevance}
-                      </div>
-                    </div>
+              {message.metadata.sources.slice(0, 5).map((source: any, idx: number) => (
+                <div key={idx} className="text-sm text-slate-300 flex items-start gap-2.5 leading-relaxed">
+                  <span className="text-slate-400 font-mono text-xs mt-0.5">[{idx + 1}]</span>
+                  <div className="flex-1">
+                    <span className="text-cyan-300 font-medium">
+                      {source.title}
+                    </span>
+                    {source.similarity && (
+                      <span className="text-slate-400 ml-2 text-xs">
+                        ({source.similarity} match)
+                      </span>
+                    )}
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </div>

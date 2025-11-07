@@ -88,6 +88,11 @@ export default function ChatPage() {
 
       const data = await response.json();
 
+      // Debug: Log the full API response to check for sources
+      console.log('Full API response:', data);
+      console.log('Sources:', data.sources);
+      console.log('Sources length:', data.sources?.length);
+
       setIsTyping(false);
 
       const assistantMessage = {
@@ -101,6 +106,9 @@ export default function ChatPage() {
           originalQuery: queryText
         }
       };
+
+      // Debug: Log the assistant message to see what's being added
+      console.log('Assistant message with metadata:', assistantMessage);
 
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -117,41 +125,27 @@ export default function ChatPage() {
   };
 
   const handleLocationSelect = (fromCode: string | null, toCode: string | null, originalQuery: string) => {
-    // Parse the original query and replace with specific POP codes
+    // Parse the original query and replace location names with specific POP codes
+    // Preserve query context (e.g., "price from X to Y" becomes "price from DA1 to LHR")
     let newQuery = originalQuery;
 
-    // Replace location names with POP codes
+    // Replace the source location with POP code, preserving "from"
     if (fromCode) {
-      // Find common patterns like "from X" or "X to"
-      const fromPatterns = [
-        /from\s+[\w\s]+(?=\s+to)/i,
-        /^[\w\s]+(?=\s+to)/i
-      ];
-
-      for (const pattern of fromPatterns) {
-        if (pattern.test(newQuery)) {
-          newQuery = newQuery.replace(pattern, `${fromCode}`);
-          break;
-        }
-      }
+      // Match patterns like "from New York" or "from chicago" and replace the location part only
+      newQuery = newQuery.replace(/from\s+[\w\s,]+(?=\s+to)/i, `from ${fromCode}`);
     }
 
+    // Replace the destination location with POP code, preserving "to"
     if (toCode) {
-      // Find patterns like "to X"
-      const toPatterns = [
-        /to\s+[\w\s]+$/i,
-        /to\s+[\w\s]+(?=\s|$)/i
-      ];
-
-      for (const pattern of toPatterns) {
-        if (pattern.test(newQuery)) {
-          newQuery = newQuery.replace(pattern, `to ${toCode}`);
-          break;
-        }
-      }
+      // Match patterns like "to London" or "to LAX?" - capture everything after "to " until end
+      newQuery = newQuery.replace(/to\s+[^?]+/i, `to ${toCode}`);
     }
 
-    // Resubmit the query with specific codes
+    console.log('[Location Select] Original query:', originalQuery);
+    console.log('[Location Select] Modified query:', newQuery);
+    console.log('[Location Select] From code:', fromCode, 'To code:', toCode);
+
+    // Resubmit the query with specific POP codes
     handleSendMessage(newQuery);
   };
 
