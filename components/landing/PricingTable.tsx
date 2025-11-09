@@ -5,7 +5,13 @@ import { TrendingDown, DollarSign, Calendar, Zap } from "lucide-react";
 
 interface PricingTableProps {
   tableData: string;
-  onProvision?: () => void;
+  onProvision?: (rowData: {
+    term: string;
+    monthlyPrice: string;
+    listPrice: string;
+    discount: string;
+    discountPercent: string;
+  }) => void;
 }
 
 export default function PricingTable({ tableData, onProvision }: PricingTableProps) {
@@ -86,11 +92,24 @@ export default function PricingTable({ tableData, onProvision }: PricingTablePro
                     {header}
                   </th>
                 ))}
+                {/* Add Action column header */}
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#4dd486] uppercase tracking-wider">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
               {dataRows.map((row, rowIndex) => {
                 const hasDiscount = row.some(cell => cell.includes('%') && parseFloat(cell) > 0);
+                
+                // Extract row data for provisioning
+                const rowData = {
+                  term: row[0] || '',
+                  monthlyPrice: row[1] || '',
+                  listPrice: row[2] || '',
+                  discount: row[3] || '',
+                  discountPercent: row[4] || ''
+                };
 
                 return (
                   <tr
@@ -126,6 +145,17 @@ export default function PricingTable({ tableData, onProvision }: PricingTablePro
                         </td>
                       );
                     })}
+                    
+                    {/* Add Provision button to each row */}
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() => onProvision?.(rowData)}
+                        className="bg-gradient-to-r from-[#4dd486] to-[#20c6b5] hover:from-[#3bc274] hover:to-[#1ab4a3] text-white px-4 py-2 rounded-lg transition-all font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Provision
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -133,7 +163,7 @@ export default function PricingTable({ tableData, onProvision }: PricingTablePro
           </table>
         </div>
 
-        {/* Best Value Badge - PacketFabric Branded */}
+        {/* Best Value Info - No button here anymore */}
         {dataRows.length > 1 && (
           <div 
             className="border-t border-[#4dd486]/20 p-4"
@@ -141,20 +171,11 @@ export default function PricingTable({ tableData, onProvision }: PricingTablePro
               background: 'linear-gradient(135deg, rgba(77, 212, 134, 0.1) 0%, rgba(32, 198, 181, 0.1) 100%)'
             }}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <Zap className="w-4 h-4 text-[#4dd486]" />
-                <span className="text-[#4dd486] font-semibold">
-                  Best Value: {dataRows[dataRows.length - 1][0]} saves you {dataRows[dataRows.length - 1][dataRows[dataRows.length - 1].length - 2]}
-                </span>
-              </div>
-              <button
-                onClick={onProvision}
-                className="bg-gradient-to-r from-[#4dd486] to-[#20c6b5] hover:from-[#3bc274] hover:to-[#1ab4a3] text-white px-6 py-2 rounded-lg transition-all font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Provision Service
-              </button>
+            <div className="flex items-center gap-2 text-sm">
+              <Zap className="w-4 h-4 text-[#4dd486]" />
+              <span className="text-[#4dd486] font-semibold">
+                Best Value: {dataRows[dataRows.length - 1][0]} saves you {dataRows[dataRows.length - 1][dataRows[dataRows.length - 1].length - 2]}
+              </span>
             </div>
           </div>
         )}

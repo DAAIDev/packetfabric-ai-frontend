@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Search, MapPin, Sparkles, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Send, Search, MapPin, Sparkles, FileText, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import PricingTable from "./PricingTable";
 
 interface Message {
@@ -28,7 +28,14 @@ interface ChatInterfaceProps {
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onViewQuote: (quote: any) => void;
   onLocationSelect: (fromCode: string | null, toCode: string | null, originalQuery: string) => void;
-  onProvision?: () => void;
+  onProvision?: (rowData: {
+    term: string;
+    monthlyPrice: string;
+    listPrice: string;
+    discount: string;
+    discountPercent: string;
+  }) => void;
+  isUpdatingPricing?: boolean;
 }
 
 export default function ChatInterface({
@@ -41,15 +48,66 @@ export default function ChatInterface({
   messagesEndRef,
   onViewQuote,
   onLocationSelect,
-  onProvision
+  onProvision,
+  isUpdatingPricing = false
 }: ChatInterfaceProps) {
-  const [showAlternatives, setShowAlternatives] = useState({ from: false, to: false });
+  const [showAlternatives, setShowAlternatives] = useState({ from: false, to: false, sources: false });
 
   // Get the last assistant message for card display
   const lastAssistantMessage = messages && messages.length > 0 
     ? messages.filter(m => m.role === 'assistant').pop() 
     : undefined;
   const hasResponse = lastAssistantMessage !== undefined;
+
+  // Track location changes
+  const [selectedLocations, setSelectedLocations] = useState<{
+    from: string | null;
+    to: string | null;
+  }>({ from: null, to: null });
+
+  const [lastQueriedLocations, setLastQueriedLocations] = useState<{
+    from: string | null;
+    to: string | null;
+  }>({ from: null, to: null });
+
+  // Store original alternatives so they persist
+  const [originalAlternatives, setOriginalAlternatives] = useState<{
+    from: any[];
+    to: any[];
+  }>({ from: [], to: [] });
+
+  // Update selected locations when message changes
+  useEffect(() => {
+    if (lastAssistantMessage?.metadata?.locations) {
+      const fromResolved = lastAssistantMessage.metadata.locations.from?.resolved;
+      const toResolved = lastAssistantMessage.metadata.locations.to?.resolved;
+      const fromAlts = lastAssistantMessage.metadata.locations.from?.alternatives || [];
+      const toAlts = lastAssistantMessage.metadata.locations.to?.alternatives || [];
+      
+      setSelectedLocations({
+        from: fromResolved || null,
+        to: toResolved || null
+      });
+      
+      setLastQueriedLocations({
+        from: fromResolved || null,
+        to: toResolved || null
+      });
+      
+      // Always update alternatives when we get new location data
+      if (fromAlts.length > 0 || toAlts.length > 0) {
+        setOriginalAlternatives({
+          from: fromAlts,
+          to: toAlts
+        });
+      }
+    }
+  }, [lastAssistantMessage?.metadata?.locations]);
+
+  // Check if locations have changed
+  const locationsChanged = 
+    selectedLocations.from !== lastQueriedLocations.from ||
+    selectedLocations.to !== lastQueriedLocations.to;
 
   // Extract pricing table from the content
   const extractPricingTable = (content: string) => {
@@ -72,6 +130,40 @@ export default function ChatInterface({
     "What is the difference between wavelength and cloud router?",
     "Show me colocation options in Denver"
   ];
+
+  const handleLocationClick = (fromCode: string | null, toCode: string | null) => {
+    // Update selected locations without auto-querying
+    setSelectedLocations({
+      from: fromCode || selectedLocations.from,
+      to: toCode || selectedLocations.to
+    });
+    
+    // Close the alternatives dropdown
+    setShowAlternatives(prev => ({ ...prev, from: false, to: false }));
+  };
+
+  const handleUpdatePricing = () => {
+    if (!lastAssistantMessage?.metadata?.originalQuery) return;
+    
+    console.log('Updating pricing with new locations:', {
+      from: selectedLocations.from,
+      to: selectedLocations.to,
+      originalQuery: lastAssistantMessage.metadata.originalQuery
+    });
+    
+    // Call the parent's location select handler with new locations
+    onLocationSelect(
+      selectedLocations.from,
+      selectedLocations.to,
+      lastAssistantMessage.metadata.originalQuery
+    );
+    
+    // Update last queried locations
+    setLastQueriedLocations({
+      from: selectedLocations.from,
+      to: selectedLocations.to
+    });
+  };
 
   return (
     <div className="w-full">
@@ -179,30 +271,30 @@ export default function ChatInterface({
                     <div className="bg-white/5 rounded-2xl p-6 border border-white/10 backdrop-blur-sm">
                       <p className="text-xs text-[#4dd486] mb-2 font-bold uppercase tracking-wider">Origin</p>
                       <p className="text-xl font-bold text-white mb-4">
-                        {lastAssistantMessage.metadata.locations.from.selected}
+                        {selectedLocations.from || lastAssistantMessage.metadata.locations.from.resolved}
                       </p>
                       
-                      {lastAssistantMessage.metadata.locations.from.alternatives?.length > 0 && (
+                      {originalAlternatives.from.length > 0 && (
                         <>
                           <button
                             onClick={() => setShowAlternatives(prev => ({ ...prev, from: !prev.from }))}
                             className="flex items-center gap-2 text-[#4dd486] hover:text-[#3bc274] font-semibold text-sm transition-colors"
                           >
                             {showAlternatives.from ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            {lastAssistantMessage.metadata.locations.from.alternatives.length} alternative locations
+                            {originalAlternatives.from.length} alternative locations
                           </button>
 
                           {showAlternatives.from && (
                             <div className="mt-4 space-y-2">
-                              {lastAssistantMessage.metadata.locations.from.alternatives.map((alt: any, i: number) => (
+                              {originalAlternatives.from.map((alt: any, i: number) => (
                                 <button
                                   key={i}
-                                  onClick={() => onLocationSelect(
-                                    alt.code, 
-                                    lastAssistantMessage.metadata?.locations?.to?.selected,
-                                    lastAssistantMessage.metadata?.originalQuery || ''
-                                  )}
-                                  className="w-full text-left px-4 py-3 bg-white/5 hover:bg-[#4dd486]/20 rounded-xl transition-all border border-white/10 hover:border-[#4dd486]/50 text-white"
+                                  onClick={() => handleLocationClick(alt.code, null)}
+                                  className={`w-full text-left px-4 py-3 rounded-xl transition-all border ${
+                                    selectedLocations.from === alt.code
+                                      ? 'bg-[#4dd486]/20 border-[#4dd486]/50'
+                                      : 'bg-white/5 border-white/10 hover:bg-[#4dd486]/10 hover:border-[#4dd486]/30'
+                                  } text-white`}
                                 >
                                   <span className="font-bold text-[#4dd486]">{alt.code}</span> <span className="text-white/80">- {alt.name}</span>
                                 </button>
@@ -219,30 +311,30 @@ export default function ChatInterface({
                     <div className="bg-white/5 rounded-2xl p-6 border border-white/10 backdrop-blur-sm">
                       <p className="text-xs text-[#4dd486] mb-2 font-bold uppercase tracking-wider">Destination</p>
                       <p className="text-xl font-bold text-white mb-4">
-                        {lastAssistantMessage.metadata.locations.to.selected}
+                        {selectedLocations.to || lastAssistantMessage.metadata.locations.to.resolved}
                       </p>
                       
-                      {lastAssistantMessage.metadata.locations.to.alternatives?.length > 0 && (
+                      {originalAlternatives.to.length > 0 && (
                         <>
                           <button
                             onClick={() => setShowAlternatives(prev => ({ ...prev, to: !prev.to }))}
                             className="flex items-center gap-2 text-[#4dd486] hover:text-[#3bc274] font-semibold text-sm transition-colors"
                           >
                             {showAlternatives.to ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            {lastAssistantMessage.metadata.locations.to.alternatives.length} alternative locations
+                            {originalAlternatives.to.length} alternative locations
                           </button>
 
                           {showAlternatives.to && (
                             <div className="mt-4 space-y-2">
-                              {lastAssistantMessage.metadata.locations.to.alternatives.map((alt: any, i: number) => (
+                              {originalAlternatives.to.map((alt: any, i: number) => (
                                 <button
                                   key={i}
-                                  onClick={() => onLocationSelect(
-                                    lastAssistantMessage.metadata?.locations?.from?.selected,
-                                    alt.code,
-                                    lastAssistantMessage.metadata?.originalQuery || ''
-                                  )}
-                                  className="w-full text-left px-4 py-3 bg-white/5 hover:bg-[#4dd486]/20 rounded-xl transition-all border border-white/10 hover:border-[#4dd486]/50 text-white"
+                                  onClick={() => handleLocationClick(null, alt.code)}
+                                  className={`w-full text-left px-4 py-3 rounded-xl transition-all border ${
+                                    selectedLocations.to === alt.code
+                                      ? 'bg-[#4dd486]/20 border-[#4dd486]/50'
+                                      : 'bg-white/5 border-white/10 hover:bg-[#4dd486]/10 hover:border-[#4dd486]/30'
+                                  } text-white`}
                                 >
                                   <span className="font-bold text-[#4dd486]">{alt.code}</span> <span className="text-white/80">- {alt.name}</span>
                                 </button>
@@ -254,6 +346,51 @@ export default function ChatInterface({
                     </div>
                   )}
                 </div>
+
+                {/* Locations Changed Warning + Update Button */}
+                {locationsChanged && !isUpdatingPricing && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-6 bg-gradient-to-r from-[#2877f3]/10 to-[#4dd486]/10 rounded-xl p-4 border border-[#2877f3]/30"
+                  >
+                    <div className="flex items-start gap-3 mb-4">
+                      <AlertCircle className="w-5 h-5 text-[#2877f3] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-white font-semibold">Locations Changed</p>
+                        <p className="text-white/70 text-sm">
+                          Route updated to: <span className="text-[#4dd486] font-bold">{selectedLocations.from} → {selectedLocations.to}</span>
+                        </p>
+                        <p className="text-white/70 text-sm mt-1">Pricing may differ for this route.</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleUpdatePricing}
+                      className="w-full bg-gradient-to-r from-[#2877f3] to-[#4dd486] hover:from-[#1e5fd9] hover:to-[#3bc274] text-white px-6 py-3 rounded-xl font-bold shadow-xl hover:shadow-2xl hover:scale-105"
+                    >
+                      Update Pricing
+                    </Button>
+                  </motion.div>
+                )}
+
+                {/* Updating Pricing Loader */}
+                {isUpdatingPricing && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-6 bg-gradient-to-r from-[#2877f3]/10 to-[#4dd486]/10 rounded-xl p-4 border border-[#2877f3]/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="w-5 h-5 text-[#4dd486] animate-spin flex-shrink-0" />
+                      <div>
+                        <p className="text-white font-semibold">Updating Pricing...</p>
+                        <p className="text-white/70 text-sm">
+                          Fetching pricing for: <span className="text-[#4dd486] font-bold">{selectedLocations.from} → {selectedLocations.to}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           )}
@@ -346,16 +483,34 @@ export default function ChatInterface({
                 })}
               </div>
               
-              {/* Pricing Table */}
+              {/* Pricing Table with Loading Spinners */}
               {pricingTable && (
                 <div className="mt-8">
-                  <PricingTable tableData={pricingTable} onProvision={onProvision} />
+                  {isUpdatingPricing ? (
+                    // Loading state - same style as provisioning flow
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-[#4dd486] animate-spin" />
+                        <p className="text-white/90">Fetching pricing data...</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-[#4dd486] animate-spin" />
+                        <p className="text-white/90">Calculating rates for {selectedLocations.from} → {selectedLocations.to}...</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-[#4dd486] animate-spin" />
+                        <p className="text-white/90">Applying discounts and contract terms...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <PricingTable tableData={pricingTable} onProvision={onProvision} />
+                  )}
                 </div>
               )}
             </div>
           </motion.div>
 
-          {/* Sources Card */}
+          {/* Sources Card - Collapsible */}
           {lastAssistantMessage.metadata?.sources && lastAssistantMessage.metadata.sources.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -363,49 +518,76 @@ export default function ChatInterface({
               transition={{ delay: 0.2 }}
               className="glass-morphism rounded-3xl shadow-2xl border border-white/20 overflow-hidden backdrop-blur-xl"
             >
-              {/* Card Header with PacketFabric Gradient */}
+              {/* Card Header with PacketFabric Gradient - Clickable */}
               <div 
                 className="backdrop-blur-md p-6"
                 style={{
                   background: 'linear-gradient(135deg, #2877f3 0%, #693cf3 100%)'
                 }}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <FileText className="w-6 h-6 text-white" />
+                <button
+                  onClick={() => setShowAlternatives(prev => ({ ...prev, sources: !prev.sources }))}
+                  className="w-full flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <FileText className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-2xl font-bold text-white">Sources & Citations</h3>
+                      <p className="text-white/90 text-sm">
+                        {lastAssistantMessage.metadata.sources.length} documentation sources
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white">Sources & Citations</h3>
-                    <p className="text-white/90 text-sm">Documentation used to generate this answer</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/80 text-sm font-semibold">
+                      {showAlternatives.sources ? 'Hide' : 'View'}
+                    </span>
+                    {showAlternatives.sources ? (
+                      <ChevronUp className="w-5 h-5 text-white" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-white" />
+                    )}
                   </div>
-                </div>
+                </button>
               </div>
 
-              {/* Card Body */}
-              <div className="p-8 bg-slate-900/40">
-                <div className="grid md:grid-cols-2 gap-4">
-                  {lastAssistantMessage.metadata.sources.map((source: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-4 p-5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all"
-                    >
-                      <div className="flex-1">
-                        <div className="font-bold text-white mb-1">
-                          {source.title || `Source ${i + 1}`}
+              {/* Card Body - Collapsible */}
+              {showAlternatives.sources && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-8 bg-slate-900/40">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {lastAssistantMessage.metadata.sources.map((source: any, i: number) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-4 p-5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all"
+                        >
+                          <div className="flex-1">
+                            <div className="font-bold text-white mb-1">
+                              {source.title || `Source ${i + 1}`}
+                            </div>
+                            {source.category && (
+                              <div className="text-sm text-white/60">{source.category}</div>
+                            )}
+                          </div>
+                          {source.similarity && (
+                            <div className="text-sm font-bold text-[#4dd486] bg-[#4dd486]/10 px-3 py-1 rounded-full">
+                              {source.similarity}
+                            </div>
+                          )}
                         </div>
-                        {source.category && (
-                          <div className="text-sm text-white/60">{source.category}</div>
-                        )}
-                      </div>
-                      {source.similarity && (
-                        <div className="text-sm font-bold text-[#4dd486] bg-[#4dd486]/10 px-3 py-1 rounded-full">
-                          {source.similarity}
-                        </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 

@@ -21,7 +21,11 @@ export default function ChatPage() {
   const [quoteData, setQuoteData] = useState<any>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showProvisioningFlow, setShowProvisioningFlow] = useState(false);
-  const [provisioningStep, setProvisioningStep] = useState<'checking' | 'billing' | 'configuring' | 'complete'>('checking');
+  const [provisioningStep, setProvisioningStep] = useState<'checking' | 'config' | 'billing' | 'configuring' | 'complete'>('checking');
+  const [availabilityData, setAvailabilityData] = useState<any>(null);
+  const [selectedPricing, setSelectedPricing] = useState<any>(null);
+  const [provisioningConfig, setProvisioningConfig] = useState<any>(null);
+  const [isUpdatingPricing, setIsUpdatingPricing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatSectionRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +63,23 @@ export default function ChatPage() {
     checkAuth();
   }, []);
 
+  // Close provisioning flow when new pricing arrives after speed change
+  useEffect(() => {
+    // If we're in checking step with no availability data, and we just got a new assistant message
+    // with pricing data, close the provisioning flow
+    if (showProvisioningFlow && provisioningStep === 'checking' && !availabilityData) {
+      const lastMessage = messages.filter(m => m.role === 'assistant').pop();
+      if (lastMessage?.metadata?.includes_live_pricing && messages.length > 2) {
+        // New pricing arrived - close provisioning flow THEN clear updating flag
+        setTimeout(() => {
+          setShowProvisioningFlow(false);
+          setIsUpdatingPricing(false); // Clear AFTER closing, not before
+          scrollToBottom();
+        }, 500);
+      }
+    }
+  }, [messages, showProvisioningFlow, provisioningStep, availabilityData]);
+
   const handleSendMessage = async (customQuery?: string) => {
     const queryText = customQuery || inputValue;
     if (typeof queryText !== 'string' || !queryText.trim()) return;
@@ -91,10 +112,15 @@ export default function ChatPage() {
 
       const data = await response.json();
 
-      // Debug: Log the full API response to check for sources
+      // Debug: Log the full API response
+      console.log('=== API RESPONSE ===');
+      console.log('Query sent:', userMessage.content);
       console.log('Full API response:', data);
+      console.log('Pricing data:', data.pricing);
+      console.log('Locations returned:', data.locations);
       console.log('Sources:', data.sources);
       console.log('Sources length:', data.sources?.length);
+      console.log('Metadata:', data.metadata);
 
       setIsTyping(false);
 
@@ -144,16 +170,27 @@ export default function ChatPage() {
       newQuery = newQuery.replace(/to\s+[^?]+/i, `to ${toCode}`);
     }
 
+    console.log('=== LOCATION CHANGE ===');
     console.log('[Location Select] Original query:', originalQuery);
     console.log('[Location Select] Modified query:', newQuery);
     console.log('[Location Select] From code:', fromCode, 'To code:', toCode);
+    console.log('[Location Select] Are queries different?', originalQuery !== newQuery);
 
     // Resubmit the query with specific POP codes
     handleSendMessage(newQuery);
   };
 
-  const handleProvision = async () => {
-    console.log('Provision button clicked!');
+  const handleProvision = async (rowData: {
+    term: string;
+    monthlyPrice: string;
+    listPrice: string;
+    discount: string;
+    discountPercent: string;
+  }) => {
+    console.log('Provision button clicked with row data:', rowData);
+    
+    // Store the selected pricing
+    setSelectedPricing(rowData);
     
     // Check if user is authenticated
     try {
@@ -161,51 +198,121 @@ export default function ChatPage() {
       const data = await response.json();
       
       if (!data.isLoggedIn) {
-        // Not logged in - redirect to login with return URL
         console.log('User not logged in, redirecting to login...');
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
         router.push(`/login?returnUrl=${returnUrl}`);
         return;
       }
       
-      // User is logged in - start provisioning flow
-      console.log('User is logged in, starting provisioning flow...');
+      // User is logged in - get the last pricing query
+      const lastMessage = messages.filter(m => m.role === 'assistant').pop();
+      const locations = lastMessage?.metadata?.locations;
+      
+      if (!locations?.from?.resolved || !locations?.to?.resolved) {
+        console.error('No location data found in last message');
+        alert('Please run a pricing query first to provision a service');
+        return;
+      }
+      
+      const fromPop = locations.from.resolved;
+      const toPop = locations.to.resolved;
+      
+      console.log(`Checking availability: ${fromPop} -> ${toPop}`);
+      
+      // Start provisioning flow
       setShowProvisioningFlow(true);
       setProvisioningStep('checking');
       
-      // Simulate checking availability (2 seconds)
-      setTimeout(() => {
-        setProvisioningStep('billing');
-        
-        // Simulate billing check (2 seconds)
-        setTimeout(() => {
-          setProvisioningStep('configuring');
-          
-          // Simulate provisioning (3 seconds)
-          setTimeout(() => {
-            setProvisioningStep('complete');
-          }, 3000);
-        }, 2000);
-      }, 2000);
-      
-      // Scroll to show the provisioning cards
+      // Scroll to provisioning flow immediately
       setTimeout(() => {
         scrollToBottom();
       }, 100);
       
+      // Call real availability API
+      const availabilityResponse = await fetch('/api/packetfabric/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_pop: fromPop,
+          to_pop: toPop
+        })
+      });
+      
+      if (!availabilityResponse.ok) {
+        throw new Error('Availability check failed');
+      }
+      
+      const availabilityData = await availabilityResponse.json();
+      console.log('Availability data:', availabilityData);
+      setAvailabilityData(availabilityData);
+      
+      // DON'T auto-advance - wait for user to click "Continue"
+      
     } catch (error) {
-      console.error('Error checking auth:', error);
-      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-      router.push(`/login?returnUrl=${returnUrl}`);
+      console.error('Error during provisioning:', error);
+      alert('An error occurred during provisioning. Please try again.');
+      setShowProvisioningFlow(false);
     }
   };
 
+  const handleConfigConfirm = (config: any) => {
+    console.log('Configuration confirmed:', config);
+    setProvisioningConfig(config);
+    setProvisioningStep('billing');
+    setTimeout(() => scrollToBottom(), 100);
+  };
+
+  const handleSpeedChange = (newSpeed: string, originalQuery: string) => {
+    console.log('=== SPEED CHANGE ===');
+    console.log('Speed changed, updating pricing:', {
+      newSpeed,
+      originalQuery
+    });
+    
+    // Extract the original speed from the query and replace it with new speed
+    const speedRegex = /(\d+)(G|Gbps|g|gbps)/gi;
+    const newQuery = originalQuery.replace(speedRegex, newSpeed);
+    
+    console.log('New query with updated speed:', newQuery);
+    
+    // Set updating pricing flag
+    setIsUpdatingPricing(true);
+    
+    // Keep provisioning flow open, but reset to show we're updating
+    // Don't close it - just clear the data so ProvisioningFlow shows loading state
+    setAvailabilityData(null);
+    setSelectedPricing(null);
+    setProvisioningConfig(null);
+    setProvisioningStep('checking');
+    
+    // Re-run the pricing query (will show new pricing table)
+    handleSendMessage(newQuery);
+    
+    // Flow will auto-close when new pricing arrives (handled by useEffect)
+  };
+
+  const handleBillingConfirm = async () => {
+    console.log('Billing confirmed, starting provisioning...');
+    setProvisioningStep('configuring');
+    setTimeout(() => scrollToBottom(), 100);
+    
+    // Simulate provisioning (3 seconds)
+    setTimeout(() => {
+      setProvisioningStep('complete');
+      scrollToBottom();
+    }, 3000);
+  };
+
   const handleNextProvisioningStep = () => {
-    // This can be used for manual step progression if needed
     if (provisioningStep === 'checking') {
+      setProvisioningStep('config');
+      setTimeout(() => scrollToBottom(), 100);
+    } else if (provisioningStep === 'config') {
       setProvisioningStep('billing');
+      setTimeout(() => scrollToBottom(), 100);
     } else if (provisioningStep === 'billing') {
       setProvisioningStep('configuring');
+      setTimeout(() => scrollToBottom(), 100);
     }
   };
 
@@ -264,6 +371,7 @@ export default function ChatPage() {
                 }}
                 onLocationSelect={handleLocationSelect}
                 onProvision={handleProvision}
+                isUpdatingPricing={isUpdatingPricing}
               />
             )}
           </AnimatePresence>
@@ -273,6 +381,13 @@ export default function ChatPage() {
             <ProvisioningFlow 
               step={provisioningStep}
               onNextStep={handleNextProvisioningStep}
+              availabilityData={availabilityData}
+              selectedPricing={selectedPricing}
+              onConfigConfirm={handleConfigConfirm}
+              onBillingConfirm={handleBillingConfirm}
+              provisioningConfig={provisioningConfig}
+              onSpeedChange={handleSpeedChange}
+              originalQuery={messages.filter(m => m.role === 'assistant').pop()?.metadata?.originalQuery}
             />
           )}
         </div>
