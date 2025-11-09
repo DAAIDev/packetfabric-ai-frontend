@@ -9,6 +9,7 @@ import HeroSection from "@/components/landing/HeroSection";
 import ChatInterface from "@/components/landing/ChatInterface";
 import ThreeJSBackground from "@/components/landing/ThreeJSBackground";
 import QuoteDisplay from "@/components/landing/QuoteDisplay";
+import ProvisioningFlow from "@/components/landing/ProvisioningFlow";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function ChatPage() {
   const [sessionId] = useState(() => `session_${Date.now()}`);
   const [quoteData, setQuoteData] = useState<any>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showProvisioningFlow, setShowProvisioningFlow] = useState(false);
+  const [provisioningStep, setProvisioningStep] = useState<'checking' | 'billing' | 'configuring' | 'complete'>('checking');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatSectionRef = useRef<HTMLDivElement>(null);
 
@@ -149,6 +152,63 @@ export default function ChatPage() {
     handleSendMessage(newQuery);
   };
 
+  const handleProvision = async () => {
+    console.log('Provision button clicked!');
+    
+    // Check if user is authenticated
+    try {
+      const response = await fetch('/api/auth/check');
+      const data = await response.json();
+      
+      if (!data.isLoggedIn) {
+        // Not logged in - redirect to login with return URL
+        console.log('User not logged in, redirecting to login...');
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        router.push(`/login?returnUrl=${returnUrl}`);
+        return;
+      }
+      
+      // User is logged in - start provisioning flow
+      console.log('User is logged in, starting provisioning flow...');
+      setShowProvisioningFlow(true);
+      setProvisioningStep('checking');
+      
+      // Simulate checking availability (2 seconds)
+      setTimeout(() => {
+        setProvisioningStep('billing');
+        
+        // Simulate billing check (2 seconds)
+        setTimeout(() => {
+          setProvisioningStep('configuring');
+          
+          // Simulate provisioning (3 seconds)
+          setTimeout(() => {
+            setProvisioningStep('complete');
+          }, 3000);
+        }, 2000);
+      }, 2000);
+      
+      // Scroll to show the provisioning cards
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+      router.push(`/login?returnUrl=${returnUrl}`);
+    }
+  };
+
+  const handleNextProvisioningStep = () => {
+    // This can be used for manual step progression if needed
+    if (provisioningStep === 'checking') {
+      setProvisioningStep('billing');
+    } else if (provisioningStep === 'billing') {
+      setProvisioningStep('configuring');
+    }
+  };
+
   const handleQuickStart = (message: string) => {
     setInputValue(message);
     scrollToChat();
@@ -203,9 +263,18 @@ export default function ChatPage() {
                   setShowQuoteModal(true);
                 }}
                 onLocationSelect={handleLocationSelect}
+                onProvision={handleProvision}
               />
             )}
           </AnimatePresence>
+          
+          {/* Provisioning Flow Cards */}
+          {showProvisioningFlow && (
+            <ProvisioningFlow 
+              step={provisioningStep}
+              onNextStep={handleNextProvisioningStep}
+            />
+          )}
         </div>
       </div>
 

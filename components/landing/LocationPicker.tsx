@@ -58,7 +58,7 @@ export default function LocationPicker({
     >
       {fromAlternatives && fromAlternatives.length > 0 && (
         <div>
-          <p className="text-sm text-cyan-400 font-semibold mb-3 flex items-center gap-2">
+          <p className="text-sm text-[#4dd486] font-semibold mb-3 flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             Select Origin Location:
           </p>
@@ -69,8 +69,8 @@ export default function LocationPicker({
                 onClick={() => handleFromSelect(location.code)}
                 className={`p-3 cursor-pointer transition-all duration-200 border ${
                   selectedFrom === location.code
-                    ? 'bg-cyan-600/20 border-cyan-500 shadow-lg shadow-cyan-500/25'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 hover:border-cyan-500/50'
+                    ? 'bg-[#4dd486]/20 border-[#4dd486] shadow-lg shadow-[#4dd486]/25'
+                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 hover:border-[#4dd486]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -79,7 +79,7 @@ export default function LocationPicker({
                     <p className="text-xs text-slate-300">{location.name}</p>
                   </div>
                   {selectedFrom === location.code && (
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-[#4dd486] rounded-full"></div>
                   )}
                 </div>
               </Card>
@@ -90,7 +90,7 @@ export default function LocationPicker({
 
       {toAlternatives && toAlternatives.length > 0 && (
         <div>
-          <p className="text-sm text-cyan-400 font-semibold mb-3 flex items-center gap-2">
+          <p className="text-sm text-[#4dd486] font-semibold mb-3 flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             Select Destination Location:
           </p>
@@ -101,8 +101,8 @@ export default function LocationPicker({
                 onClick={() => handleToSelect(location.code)}
                 className={`p-3 cursor-pointer transition-all duration-200 border ${
                   selectedTo === location.code
-                    ? 'bg-cyan-600/20 border-cyan-500 shadow-lg shadow-cyan-500/25'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 hover:border-cyan-500/50'
+                    ? 'bg-[#4dd486]/20 border-[#4dd486] shadow-lg shadow-[#4dd486]/25'
+                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 hover:border-[#4dd486]/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -111,7 +111,7 @@ export default function LocationPicker({
                     <p className="text-xs text-slate-300">{location.name}</p>
                   </div>
                   {selectedTo === location.code && (
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-[#4dd486] rounded-full"></div>
                   )}
                 </div>
               </Card>

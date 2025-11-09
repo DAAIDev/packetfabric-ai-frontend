@@ -55,18 +55,16 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
       setIsLoggingOut(false);
     }
   };
+
   return (
     <div className="min-h-screen flex items-center justify-center relative z-10 px-4 sm:px-6">
-      {/* Dark overlay for better text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/30 pointer-events-none" />
-
       {/* Login/Logout button - positioned in top-right corner */}
       <div className="absolute top-6 right-6 z-20 flex gap-3">
         {isAuthenticated && (
           <Link href="/profile">
             <Button
               variant="outline"
-              className="bg-transparent border border-white/40 text-white hover:bg-blue-500/20 hover:border-blue-400/60 px-5 py-2 text-sm rounded-lg font-medium transition-all duration-200 backdrop-blur-sm"
+              className="bg-transparent border border-white/40 text-white hover:bg-[#2877f3]/20 hover:border-[#2877f3]/60 px-5 py-2 text-sm rounded-lg font-medium transition-all duration-200 backdrop-blur-sm"
               style={{
                 textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
               }}
@@ -106,24 +104,36 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
 
       <div className="text-center max-w-4xl mx-auto relative z-10">
 
-        {/* Logo Animation */}
+        {/* Logo Animation - PacketFabric Official Logo */}
         <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 1, type: "spring", bounce: 0.3 }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}
           className="mb-6 sm:mb-8"
         >
-          <div className="w-16 h-16 sm:w-20 md:w-24 sm:h-20 md:h-24 mx-auto bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl border-2 border-white/30">
-            <div className="relative">
-              <Network className="w-8 h-8 sm:w-10 md:w-12 sm:h-10 md:h-12 text-white drop-shadow-2xl" />
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2"
-              >
-                <Sparkles className="w-4 h-4 sm:w-5 md:w-6 sm:h-5 md:h-6 text-cyan-300 drop-shadow-2xl" />
-              </motion.div>
-            </div>
+          <div className="relative inline-block">
+            <img 
+              src="/packetfabric-logo.webp" 
+              alt="PacketFabric Logo" 
+              className="h-24 sm:h-32 md:h-40 lg:h-48 w-auto mx-auto drop-shadow-2xl"
+              style={{
+                filter: 'drop-shadow(0 0 40px rgba(77, 212, 134, 0.3))'
+              }}
+            />
+            <motion.div
+              animate={{ 
+                scale: [1, 1.2, 1],
+                opacity: [0.5, 1, 0.5]
+              }}
+              transition={{ 
+                duration: 3, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3"
+            >
+              <Sparkles className="w-5 h-5 sm:w-6 md:w-7 sm:h-6 md:h-7 text-[#4dd486] drop-shadow-2xl" />
+            </motion.div>
           </div>
         </motion.div>
 
@@ -135,13 +145,20 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
           className="mb-4 sm:mb-6"
         >
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black text-white mb-2 sm:mb-4" style={{
-            textShadow: '0 0 40px rgba(0, 0, 0, 0.9), 0 0 80px rgba(0, 212, 255, 0.4), 0 8px 32px rgba(0, 0, 0, 0.8)',
+            textShadow: '0 0 40px rgba(0, 0, 0, 0.9), 0 0 80px rgba(77, 212, 134, 0.4), 0 8px 32px rgba(0, 0, 0, 0.8)',
             WebkitTextStroke: '1px rgba(255, 255, 255, 0.1)'
           }}>
             PacketFabric
-            <span className="bg-gradient-to-r from-cyan-200 to-blue-200 bg-clip-text text-transparent block sm:inline" style={{
-              textShadow: '0 0 40px rgba(0, 212, 255, 0.6)'
-            }}>
+            <span 
+              className="block sm:inline"
+              style={{
+                background: 'linear-gradient(135deg, #4dd486 0%, #20c6b5 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                textShadow: 'none'
+              }}
+            >
               .ai
             </span>
           </h1>
@@ -169,30 +186,54 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
           </p>
         </motion.div>
 
-        {/* CTA Buttons */}
+        {/* Search Box - Embedded on Hero */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="flex flex-col gap-3 sm:gap-4 justify-center mb-12 sm:mb-16 px-2"
+          className="max-w-4xl mx-auto mb-8 sm:mb-12 px-2"
         >
-          <Button
-            onClick={onGetStarted}
-            size="lg"
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold rounded-full shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 border border-white/20 w-full sm:w-auto"
+          <div
+            className="glass-morphism rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 backdrop-blur-xl"
             style={{
-              boxShadow: '0 0 30px rgba(0, 212, 255, 0.3), 0 10px 40px rgba(0, 0, 0, 0.4)'
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(20px)',
             }}
           >
-            <Zap className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-            Start Conversation
-            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
-          </Button>
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#4dd486] to-[#20c6b5] flex items-center justify-center shadow-lg flex-shrink-0">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <input
+                type="text"
+                placeholder="Ask about pricing, services, or technical questions..."
+                className="flex-1 text-lg sm:text-xl outline-none text-white placeholder-white/60 bg-transparent font-medium"
+                onFocus={onGetStarted}
+                readOnly
+                style={{ cursor: 'pointer' }}
+              />
+              <Button
+                onClick={onGetStarted}
+                className="bg-gradient-to-r from-[#4dd486] to-[#20c6b5] hover:from-[#3bc274] hover:to-[#1ab4a3] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl transition-all flex items-center gap-2 sm:gap-3 font-bold text-base sm:text-lg shadow-xl hover:shadow-2xl hover:scale-105"
+              >
+                <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Ask</span>
+              </Button>
+            </div>
+          </div>
+        </motion.div>
 
+        {/* Secondary CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.7 }}
+          className="mb-12 sm:mb-16"
+        >
           <Button
             variant="outline"
             size="lg"
-            className="bg-transparent border-2 border-white/60 text-white hover:border-cyan-400 hover:shadow-cyan-500/20 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg rounded-full font-bold transition-all duration-300 backdrop-blur-sm shadow-lg hover:shadow-2xl w-full sm:w-auto"
+            className="bg-transparent border-2 border-white/60 text-white hover:border-[#4dd486] hover:bg-[#4dd486]/10 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg rounded-full font-bold transition-all duration-300 backdrop-blur-sm shadow-lg hover:shadow-2xl"
             onClick={() => window.open('https://packetfabric.com', '_blank')}
             style={{
               textShadow: '0 0 20px rgba(0, 0, 0, 0.9), 0 2px 10px rgba(0, 0, 0, 0.7)',
@@ -210,10 +251,10 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
           transition={{ duration: 0.8, delay: 0.8 }}
           className="max-w-3xl mx-auto px-2"
         >
-          <p className="text-slate-300 mb-4 sm:mb-6 text-xs sm:text-sm uppercase tracking-widest font-bold" style={{
+          <p className="text-slate-300 mb-4 sm:mb-6 text-xs sm:text-sm uppercase tracking-widest font-bold flex items-center justify-center gap-2" style={{
             textShadow: '0 0 20px rgba(0, 0, 0, 0.9), 0 2px 10px rgba(0, 0, 0, 0.8)'
           }}>
-            Try asking:
+            <span className="text-[#4dd486]">+</span> Try asking:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {quickStartOptions.map((option, index) => (
@@ -223,16 +264,17 @@ export default function HeroSection({ onGetStarted, onQuickStart }: HeroSectionP
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 1 + index * 0.1 }}
                 onClick={() => onQuickStart(option)}
-                className="p-3 sm:p-4 text-left border border-white/30 hover:border-white/50 rounded-lg sm:rounded-xl transition-all duration-300 group backdrop-blur-md hover:backdrop-blur-lg"
+                className="p-3 sm:p-4 text-left border border-white/30 hover:border-[#4dd486]/50 hover:bg-[#4dd486]/10 rounded-lg sm:rounded-xl transition-all duration-300 group backdrop-blur-md hover:backdrop-blur-lg"
                 style={{
                   background: 'rgba(0, 0, 0, 0.6)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
                 }}
               >
-                <p className="text-slate-100 group-hover:text-white transition-colors font-medium text-sm sm:text-base" style={{
+                <p className="text-slate-100 group-hover:text-white transition-colors font-medium text-sm sm:text-base flex items-start gap-2" style={{
                   textShadow: '0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.7)'
                 }}>
-                  "{option}"
+                  <span className="text-[#4dd486] mt-0.5">+</span>
+                  <span>"{option}"</span>
                 </p>
               </motion.button>
             ))}
